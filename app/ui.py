@@ -1,7 +1,7 @@
 import streamlit as st
 from pypdf import PdfReader
 from rag import chunk_text, build_index, search_chunks
-import google.generativeai as genai
+
 
 st.set_page_config(page_title="RAG Chatbot", page_icon="🤖")
 
