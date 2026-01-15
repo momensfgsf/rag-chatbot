@@ -1,44 +1,18 @@
 import streamlit as st
 from pypdf import PdfReader
-import re
+from rag import chunk_text, build_index, search_chunks
+import google.generativeai as genai
 
-
-# -----------------------------
-# Helpers
-# -----------------------------
-def chunk_text(text, chunk_size=800):
-    text = text.replace("\n", " ")
-    chunks = []
-    for i in range(0, len(text), chunk_size):
-        chunks.append(text[i:i + chunk_size])
-    return chunks
-
-
-def score_chunk(question, chunk):
-    # simple keyword scoring (no AI libraries needed)
-    q_words = re.findall(r"\w+", question.lower())
-    c_lower = chunk.lower()
-
-    score = 0
-    for w in q_words:
-        if len(w) > 2 and w in c_lower:
-            score += 1
-    return score
-
-
-def search_chunks(question, chunks, top_k=3):
-    scored = [(chunk, score_chunk(question, chunk)) for chunk in chunks]
-    scored.sort(key=lambda x: x[1], reverse=True)
-    return [c for c, s in scored[:top_k] if s > 0]
-
-
-# -----------------------------
-# UI
-# -----------------------------
 st.set_page_config(page_title="RAG Chatbot", page_icon="🤖")
 
 st.title("🤖 RAG Chatbot (PDF)")
 st.write("Upload a PDF, extract text, then ask questions to search inside it.")
+
+# ✅ Gemini Setup
+if "GEMINI_API_KEY" in st.secrets:
+    genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+else:
+    st.warning("⚠️ GEMINI_API_KEY not found. Add it in Streamlit Secrets.")
 
 uploaded = st.file_uploader("Upload a PDF", type=["pdf"])
 
@@ -57,7 +31,6 @@ if uploaded:
         text += (page.extract_text() or "") + "\n"
 
     st.success(f"✅ Extracted {len(text)} characters")
-
     st.text_area("Preview (first 3000 chars)", text[:3000], height=300)
 
     st.download_button(
@@ -66,21 +39,43 @@ if uploaded:
         file_name="extracted_text.txt"
     )
 
-    # Make chunks
+    # ✅ Build semantic index
     chunks = chunk_text(text)
+    model, index = build_index(chunks)
 
     st.subheader("Ask the PDF")
     question = st.text_input("Type your question")
 
     if question:
-        best_chunks = search_chunks(question, chunks, top_k=3)
+        best_chunks = search_chunks(question, chunks, model, index, top_k=3)
 
-        if best_chunks:
-            st.write("✅ Top relevant parts:")
-            for c in best_chunks:
-                st.info(c[:600])
-        else:
-            st.warning("No strong matches found. Try different keywords.")
+        st.write("✅ Top relevant parts used:")
+        for c in best_chunks:
+            st.info(c[:600])
+
+        # ✅ Final AI Answer using Gemini
+        if "GEMINI_API_KEY" in st.secrets:
+            context = "\n\n".join(best_chunks)
+
+            prompt = f"""
+You are a helpful assistant.
+Answer the user's question using ONLY the context below.
+If the answer is not in the context, say: "I couldn't find that in the PDF."
+
+CONTEXT:
+{context}
+
+QUESTION:
+{question}
+
+FINAL ANSWER:
+"""
+
+            gemini_model = genai.GenerativeModel("gemini-1.5-flash")
+            response = gemini_model.generate_content(prompt)
+
+            st.subheader("🤖 AI Answer")
+            st.write(response.text)
 
 
 
