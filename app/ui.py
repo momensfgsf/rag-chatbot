@@ -45,16 +45,46 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
-# 2. Session State Calculation
+# 2. Authentication Logic (SaaS Gate)
 # -----------------------------------------------------------------------------
+if "authenticated" not in st.session_state:
+    st.session_state.authenticated = False
+
+def check_login():
+    # HARDCODED KEY FOR MVP (You can change this)
+    VALID_KEY = "SHADOW-ACCESS" 
+    
+    key = st.session_state.license_input
+    if key == VALID_KEY:
+        st.session_state.authenticated = True
+    else:
+        st.session_state.login_error = "❌ Invalid License Key"
+
+if not st.session_state.authenticated:
+    # --- LOGIN SCREEN ---
+    c1, c2, c3 = st.columns([1,2,1])
+    with c2:
+        st.title("🔐 Shadow Operator OS")
+        st.markdown("### Members Only Access")
+        
+        st.text_input("Enter License Key", key="license_input", type="password")
+        st.button("Unlock Access", on_click=check_login)
+        
+        if "login_error" in st.session_state:
+            st.error(st.session_state.login_error)
+            
+    st.stop() # STOP HERE if not logged in
+
+# -----------------------------------------------------------------------------
+# 3. Main App (Protected Content)
+# -----------------------------------------------------------------------------
+
+# --- Session Init ---
 if "audit_followers" not in st.session_state: st.session_state.audit_followers = 50000
 if "audit_likes" not in st.session_state: st.session_state.audit_likes = 1500
 if "audit_comments" not in st.session_state: st.session_state.audit_comments = 50
 if "audit_name" not in st.session_state: st.session_state.audit_name = ""
 
-# -----------------------------------------------------------------------------
-# 3. Main Layout
-# -----------------------------------------------------------------------------
 st.title("🕵️‍♂️ Shadow Operator OS")
 
 # --- Auto-Fetch Section ---
@@ -71,22 +101,17 @@ with st.expander("🕵️‍♂️ Auto-Fetch Data (Optional)", expanded=True):
             
             # Clean username
             username = search_query.replace("https://www.instagram.com/", "").replace("https://instagram.com/", "").replace("/", "").replace("@", "").strip()
-            # Remove any trailing slash or query params
             if "?" in username: username = username.split("?")[0]
             
             try:
                 with st.spinner(f"Spying on @{username}..."):
                     profile = instaloader.Profile.from_username(L.context, username)
                     
-                    # Store in session state
                     st.session_state.audit_followers = profile.followers
                     st.session_state.audit_name = profile.full_name if profile.full_name else username
                     
-                    # Get Engagement (Last 3 Posts)
                     posts = profile.get_posts()
-                    likes = 0
-                    comments = 0
-                    count = 0
+                    likes = 0; comments = 0; count = 0
                     for post in posts:
                         if count >= 3: break
                         likes += post.likes
@@ -104,17 +129,15 @@ with st.expander("🕵️‍♂️ Auto-Fetch Data (Optional)", expanded=True):
             except Exception as e:
                 st.error(f"Suggest manual entry. Error: {str(e)}")
 
-# --- Manual Inputs (Synced with Session State) ---
+# --- Manual Inputs ---
 col1, col2, col3 = st.columns(3)
 
 with col1:
     st.markdown("#### 👤 Target Info")
-    # key=... updates the session state automatically when user types
     creator_name = st.text_input("Creator Name", value=st.session_state.audit_name, placeholder="e.g. Coach Karfei")
 
 with col2:
     st.markdown("#### 📊 Metrics")
-    # We use separate keys for the widgets to avoid conflict, then sync if needed
     followers = st.number_input("Followers", min_value=0, value=st.session_state.audit_followers, step=100)
     avg_likes = st.number_input("Avg Likes", min_value=0, value=st.session_state.audit_likes)
     avg_comments = st.number_input("Avg Comments", min_value=0, value=st.session_state.audit_comments)
@@ -126,54 +149,23 @@ with col3:
 
 st.markdown("---")
 
-# -----------------------------------------------------------------------------
-# 4. The Math Engine
-# -----------------------------------------------------------------------------
+# --- The Math Engine ---
 if followers > 0:
-    # 1. Engagement Rate
     total_interactions = avg_likes + avg_comments
     engagement_rate = (total_interactions / followers) * 100
-    
-    # 2. Revenue Projection
-    # Formula: Followers * ConversionRate * Price
     est_buyers = int(followers * (conversion_rate / 100))
     est_revenue = est_buyers * product_price
-    
-    # 3. Your Cut (40%)
     your_cut = est_revenue * 0.40
     
-    # Display Metrics
     m1, m2, m3, m4 = st.columns(4)
-    
-    m1.metric(
-        "Engagement Rate", 
-        f"{engagement_rate:.2f}%", 
-        delta="Target > 3%" if engagement_rate > 3 else "Low Engagement"
-    )
-    
-    m2.metric(
-        "Est. Monthly Sales", 
-        f"{est_buyers} units"
-    )
-    
-    m3.metric(
-        "Total Revenue", 
-        f"${est_revenue:,.0f}",
-        delta="Opportunity"
-    )
-    
-    m4.metric(
-        "YOUR 40% CUT", 
-        f"${your_cut:,.0f}",
-        delta="Passive Income",
-        delta_color="normal"
-    )
+    m1.metric("Engagement Rate", f"{engagement_rate:.2f}%", delta="Target > 3%" if engagement_rate > 3 else "Low Engagement")
+    m2.metric("Est. Monthly Sales", f"{est_buyers} units")
+    m3.metric("Total Revenue", f"${est_revenue:,.0f}", delta="Opportunity")
+    m4.metric("YOUR 40% CUT", f"${your_cut:,.0f}", delta="Passive Income", delta_color="normal")
     
     st.progress(min(engagement_rate / 10, 1.0), text=f"Health Score: {min(engagement_rate*10, 100):.0f}/100")
 
-# -----------------------------------------------------------------------------
-# 5. The Sniper DM Generator
-# -----------------------------------------------------------------------------
+# --- The Sniper DM ---
 st.markdown("### 🎯 The Sniper DM")
 
 col_prod, col_gap = st.columns(2)
