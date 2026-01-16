@@ -84,6 +84,7 @@ if "audit_followers" not in st.session_state: st.session_state.audit_followers =
 if "audit_likes" not in st.session_state: st.session_state.audit_likes = 1500
 if "audit_comments" not in st.session_state: st.session_state.audit_comments = 50
 if "audit_name" not in st.session_state: st.session_state.audit_name = ""
+if "audit_commission" not in st.session_state: st.session_state.audit_commission = 40
 
 st.title("🕵️‍♂️ Shadow Operator OS")
 
@@ -201,6 +202,7 @@ with col3:
     st.markdown("#### 💰 Product Model")
     product_price = st.number_input("Target Product Price ($)", value=47)
     conversion_rate = st.slider("Est. Conversion Rate (%)", 0.5, 5.0, 1.0, 0.1)
+    commission_rate = st.slider("Your Commission (%)", 10, 90, st.session_state.audit_commission, 5)
 
 st.markdown("---")
 
@@ -210,13 +212,13 @@ if followers > 0:
     engagement_rate = (total_interactions / followers) * 100
     est_buyers = int(followers * (conversion_rate / 100))
     est_revenue = est_buyers * product_price
-    your_cut = est_revenue * 0.40
+    your_cut = est_revenue * (commission_rate / 100)
     
     m1, m2, m3, m4 = st.columns(4)
     m1.metric("Engagement Rate", f"{engagement_rate:.2f}%", delta="Target > 3%" if engagement_rate > 3 else "Low Engagement")
     m2.metric("Est. Monthly Sales", f"{est_buyers} units")
     m3.metric("Total Revenue", f"${est_revenue:,.0f}", delta="Opportunity")
-    m4.metric("YOUR 40% CUT", f"${your_cut:,.0f}", delta="Passive Income", delta_color="normal")
+    m4.metric(f"YOUR {commission_rate}% CUT", f"${your_cut:,.0f}", delta="Passive Income", delta_color="normal")
     
     st.progress(min(engagement_rate / 10, 1.0), text=f"Health Score: {min(engagement_rate*10, 100):.0f}/100")
 
