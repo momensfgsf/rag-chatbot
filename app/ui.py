@@ -1,7 +1,8 @@
 import streamlit as st
 from pypdf import PdfReader
-from rag import chunk_text, build_index, search_chunks
+import google.generativeai as genai
 
+from rag import chunk_text, build_index, search_chunks
 
 st.set_page_config(page_title="RAG Chatbot", page_icon="🤖")
 
@@ -11,7 +12,9 @@ st.write("Upload a PDF, extract text, then ask questions to search inside it.")
 # ✅ Gemini Setup
 if "GEMINI_API_KEY" in st.secrets:
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+    gemini_model = genai.GenerativeModel("gemini-1.5-flash")
 else:
+    gemini_model = None
     st.warning("⚠️ GEMINI_API_KEY not found. Add it in Streamlit Secrets.")
 
 uploaded = st.file_uploader("Upload a PDF", type=["pdf"])
@@ -53,8 +56,8 @@ if uploaded:
         for c in best_chunks:
             st.info(c[:600])
 
-        # ✅ Final AI Answer using Gemini
-        if "GEMINI_API_KEY" in st.secrets:
+        # ✅ Gemini Answer
+        if gemini_model:
             context = "\n\n".join(best_chunks)
 
             prompt = f"""
@@ -71,10 +74,9 @@ QUESTION:
 FINAL ANSWER:
 """
 
-            gemini_model = genai.GenerativeModel("gemini-1.5-flash")
             response = gemini_model.generate_content(prompt)
 
-            st.subheader("🤖 AI Answer")
+            st.subheader("🤖 Gemini Answer")
             st.write(response.text)
 
 
