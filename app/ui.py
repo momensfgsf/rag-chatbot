@@ -133,7 +133,9 @@ with st.expander("🕵️‍♂️ Auto-Fetch Data (Optional)", expanded=True):
                     if ig_session:
                         # METHOD A: SESSION ID (Strongest)
                         try:
-                            L.context.load_session_from_cookie(ig_user, ig_session)
+                            # Manually inject the session ID into the instaloader cookie jar
+                            L.context._session.cookies.set("sessionid", ig_session, domain=".instagram.com")
+                            L.context.username = ig_user
                         except Exception as sess_err:
                             st.error(f"Session Login failed: {str(sess_err)}")
                             st.stop()
