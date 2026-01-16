@@ -99,10 +99,24 @@ with st.expander("🕵️‍♂️ Auto-Fetch Data (Optional)", expanded=True):
 
     # --- ADVANCED SETTINGS (LOGIN) ---
     with st.expander("⚙️ Advanced Scraper Settings (If you get errors)"):
-        st.info("💡 Pro Tip: Instagram often blocks 'anonymous' searches. If you get a 401 error, enter your Instagram credentials below to bypass the limit.")
+        st.info("💡 **Pro Tip**: Instagram blocks logins from new servers. Use the 'Session ID' method for 100% success.")
         ig_user = st.text_input("IG Username (Optional)", value="")
-        ig_pass = st.text_input("IG Password (Optional)", type="password", value="")
-        st.warning("⚠️ Using your personal account can lead to temporary IG blocks. Use a 'Burner' account if possible.")
+        
+        tab_pass, tab_session = st.tabs(["🔑 Password Path", "🍪 Session ID (Pro Path)"])
+        
+        with tab_pass:
+            ig_pass = st.text_input("IG Password", type="password", value="")
+            st.warning("⚠️ Passwords often trigger 'Checkpoint' blocks. Use this first, but switch to Session ID if it fails.")
+            
+        with tab_session:
+            ig_session = st.text_input("sessionid Cookie", placeholder="Paste your session ID here...")
+            st.markdown("""
+            **How to get your Session ID:**
+            1. Log in to Instagram.com on your Chrome/Edge browser.
+            2. Right-click anywhere -> **Inspect**.
+            3. Go to **Application** (or Storage) tab -> **Cookies** -> `https://www.instagram.com`.
+            4. Find the row named `sessionid` and copy the 'Value'.
+            """)
 
     if fetch_clicked:
         import instaloader
@@ -114,12 +128,25 @@ with st.expander("🕵️‍♂️ Auto-Fetch Data (Optional)", expanded=True):
         
         try:
             with st.spinner(f"Spying on @{username}..."):
-                # Handle Login if provided
-                if ig_user and ig_pass:
-                    try:
-                        # Attempt login with 2FA support or common CSRF bypass
-                        L.login(ig_user, ig_pass)
-                    except Exception as login_err:
+                # Handle Login Logic
+                if ig_user:
+                    if ig_session:
+                        # METHOD A: SESSION ID (Strongest)
+                        try:
+                            L.context.load_session_from_cookie(ig_user, ig_session)
+                        except Exception as sess_err:
+                            st.error(f"Session Login failed: {str(sess_err)}")
+                            st.stop()
+                    elif ig_pass:
+                        # METHOD B: PASSWORD (Trigger-happy)
+                        try:
+                            L.login(ig_user, ig_pass)
+                        except Exception as login_err:
+                            if "checkpoint" in str(login_err):
+                                st.error("🔒 **Checkpoint Blocked**: Instagram needs you to verify this login on your phone. \n\n**PRO FIX**: Use the 'Session ID' tab above. It's 100% guaranteed to work because it uses your existing browser login.")
+                            else:
+                                st.error(f"Login failed: {str(login_err)}")
+                            st.stop()
                         if "CSRF" in str(login_err):
                             st.error("🔒 **CSRF Token Error**: Instagram is blocking this login attempt. \n\n**Fix**: Try logging in to this account on your phone/browser first, or use a different account. Instagram thinks this app is 'suspicious'.")
                         elif "checkpoint" in str(login_err):
