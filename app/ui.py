@@ -95,38 +95,58 @@ with st.expander("🕵️‍♂️ Auto-Fetch Data (Optional)", expanded=True):
     with col_btn:
         st.write("") 
         st.write("")
-        if st.button("Fetch Stats"):
-            import instaloader
-            L = instaloader.Instaloader()
-            
-            # Clean username
-            username = search_query.replace("https://www.instagram.com/", "").replace("https://instagram.com/", "").replace("/", "").replace("@", "").strip()
-            if "?" in username: username = username.split("?")[0]
-            
-            try:
-                with st.spinner(f"Spying on @{username}..."):
-                    profile = instaloader.Profile.from_username(L.context, username)
-                    
-                    st.session_state.audit_followers = profile.followers
-                    st.session_state.audit_name = profile.full_name if profile.full_name else username
-                    
-                    posts = profile.get_posts()
-                    likes = 0; comments = 0; count = 0
-                    for post in posts:
-                        if count >= 3: break
-                        likes += post.likes
-                        comments += post.comments
-                        count += 1
-                    
-                    if count > 0:
-                        st.session_state.audit_likes = int(likes / count)
-                        st.session_state.audit_comments = int(comments / count)
-                    
-                    st.success("✅ Target Acquired!")
-                    time.sleep(0.5)
-                    st.rerun()
-                    
-            except Exception as e:
+        fetch_clicked = st.button("Fetch Stats")
+
+    # --- ADVANCED SETTINGS (LOGIN) ---
+    with st.expander("⚙️ Advanced Scraper Settings (If you get errors)"):
+        st.info("💡 Pro Tip: Instagram often blocks 'anonymous' searches. If you get a 401 error, enter your Instagram credentials below to bypass the limit.")
+        ig_user = st.text_input("IG Username (Optional)", value="")
+        ig_pass = st.text_input("IG Password (Optional)", type="password", value="")
+        st.warning("⚠️ Using your personal account can lead to temporary IG blocks. Use a 'Burner' account if possible.")
+
+    if fetch_clicked:
+        import instaloader
+        L = instaloader.Instaloader()
+        
+        # Clean username
+        username = search_query.replace("https://www.instagram.com/", "").replace("https://instagram.com/", "").replace("/", "").replace("@", "").strip()
+        if "?" in username: username = username.split("?")[0]
+        
+        try:
+            with st.spinner(f"Spying on @{username}..."):
+                # Handle Login if provided
+                if ig_user and ig_pass:
+                    try:
+                        L.login(ig_user, ig_pass)
+                    except Exception as login_err:
+                        st.error(f"Login failed: {str(login_err)}")
+                        st.stop()
+                
+                profile = instaloader.Profile.from_username(L.context, username)
+                
+                st.session_state.audit_followers = profile.followers
+                st.session_state.audit_name = profile.full_name if profile.full_name else username
+                
+                posts = profile.get_posts()
+                likes = 0; comments = 0; count = 0
+                for post in posts:
+                    if count >= 3: break
+                    likes += post.likes
+                    comments += post.comments
+                    count += 1
+                
+                if count > 0:
+                    st.session_state.audit_likes = int(likes / count)
+                    st.session_state.audit_comments = int(comments / count)
+                
+                st.success("✅ Target Acquired!")
+                time.sleep(0.5)
+                st.rerun()
+                
+        except Exception as e:
+            if "401" in str(e) or "Login" in str(e):
+                st.error("🔒 Instagram blocked the anonymous request. Open 'Advanced Settings' above and enter your IG credentials to bypass this.")
+            else:
                 st.error(f"Suggest manual entry. Error: {str(e)}")
 
 # --- Manual Inputs ---
