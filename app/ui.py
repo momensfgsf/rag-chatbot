@@ -12,7 +12,7 @@ st.write("Upload a PDF, extract text, then ask questions to search inside it.")
 # ✅ Gemini Setup
 if "GEMINI_API_KEY" in st.secrets:
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-    gemini_model = genai.GenerativeModel("gemini-1.5-flash")
+    gemini_model = genai.GenerativeModel("gemini-1.5-pro")
 else:
     gemini_model = None
     st.warning("⚠️ GEMINI_API_KEY not found. Add it in Streamlit Secrets.")
@@ -74,10 +74,12 @@ QUESTION:
 FINAL ANSWER:
 """
 
-            response = gemini_model.generate_content(prompt)
-
-            st.subheader("🤖 Gemini Answer")
-            st.write(response.text)
+            try:
+                response = gemini_model.generate_content(prompt)
+                st.subheader("🤖 Gemini Answer")
+                st.write(response.text)
+            except Exception as e:
+                 st.error("❌ Gemini failed to generate an answer. Check Streamlit logs.")
 
 
 
